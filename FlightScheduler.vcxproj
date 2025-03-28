@@ -27,6 +27,9 @@
     <ClCompile Include="Src\server.cpp" />
     <ClCompile Include="Src\state_machine.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="Test\flights.txt" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
