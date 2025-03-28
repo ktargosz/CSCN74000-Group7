@@ -18,23 +18,11 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="Inc\common.hpp" />
-    <ClInclude Include="Inc\state_machine.hpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="Src\client.cpp" />
-    <ClCompile Include="Src\server.cpp" />
-    <ClCompile Include="Src\state_machine.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="Test\flights.txt" />
-  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{b41ed2c3-b862-4698-94ca-6a6d69717340}</ProjectGuid>
-    <RootNamespace>FlightScheduler</RootNamespace>
+    <ProjectGuid>{9dafae1e-fc56-4d2f-bf82-d1db6026e8c5}</ProjectGuid>
+    <RootNamespace>FlightClient</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -116,7 +104,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)\Inc
+      <AdditionalIncludeDirectories>$(SolutionDir)\Shared
 </AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
@@ -140,6 +128,12 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="Src\client.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\Shared\common.hpp" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
