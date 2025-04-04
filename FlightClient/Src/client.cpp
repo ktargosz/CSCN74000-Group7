@@ -19,7 +19,12 @@ int main() {
     sockaddr_in serverAddr{};
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(12345);
-    inet_pton(AF_INET, "127.0.0.1", &serverAddr.sin_addr);
+
+    if (inet_pton(AF_INET, "127.0.0.1", &serverAddr.sin_addr) <= 0) {
+        cerr << "[Client] Invalid address or inet_pton failed." << endl;
+        WSACleanup();
+        return 1;
+    }
 
     if (connect(clientSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) != 0) {
         cerr << "[Client] Failed to connect to server." << endl;
@@ -30,13 +35,18 @@ int main() {
 
     char buffer[2048] = {};
     int bytes = recv(clientSocket, buffer, sizeof(buffer), 0);
-
-    if (bytes > 0) {
-        cout << "[Client] Received flight schedule:\n";
-        cout << string(buffer, bytes) << endl;
+    if (bytes == SOCKET_ERROR) {
+        cerr << "[Client] Socket error while receiving data." << endl;
+        closesocket(clientSocket);
+        WSACleanup();
+        return 1;
+    }
+    else if (bytes == 0) {
+        cerr << "[Client] Connection closed by server." << endl;
     }
     else {
-        cerr << "[Client] No data received or connection error." << endl;
+        cout << "[Client] Received flight schedule:\n";
+        cout << string(buffer, bytes) << endl;
     }
 
     cout << "[Client] Press Enter to exit...";

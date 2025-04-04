@@ -38,18 +38,40 @@ int main() {
     serverAddr.sin_port = htons(12345);
     serverAddr.sin_addr.s_addr = INADDR_ANY;
 
-    bind(serverSocket, (sockaddr*)&serverAddr, sizeof(serverAddr));
-    listen(serverSocket, 1);
+    if (bind(serverSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) != 0) {
+        cerr << "[Server] Bind failed!" << endl;
+        closesocket(serverSocket);
+        WSACleanup();
+        return 1;
+    }
+
+    if (listen(serverSocket, 1) != 0) {
+        cerr << "[Server] Listen failed!" << endl;
+        closesocket(serverSocket);
+        WSACleanup();
+        return 1;
+    }
 
     cout << "[Server] Server started. Waiting for client..." << endl;
 
     sockaddr_in clientAddr{};
     int clientLen = sizeof(clientAddr);
     SOCKET clientSocket = accept(serverSocket, (sockaddr*)&clientAddr, &clientLen);
+    if (clientSocket == INVALID_SOCKET) {
+        cerr << "[Server] Accept failed!" << endl;
+        closesocket(serverSocket);
+        WSACleanup();
+        return 1;
+    }
     cout << "[Server] Client connected." << endl;
 
+    // Read schedule and send to client
     string flights = loadFlightSchedule("flights.txt");
-    send(clientSocket, flights.c_str(), static_cast<int>(flights.size()), 0);
+    int sent = send(clientSocket, flights.c_str(), static_cast<int>(flights.size()), 0);
+    if (sent == SOCKET_ERROR) {
+        cerr << "[Server] Send failed!" << endl;
+    }
+
     cout << "[Server] Sent flight schedule to client." << endl;
 
     closesocket(clientSocket);
