@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <array>              // For std::array£¨V2578 fix)
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include "common.hpp"
@@ -12,11 +13,13 @@ int main() {
     WSADATA wsaData;
     bool errorOccurred = false;
 
+    // Initialize WinSock
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
         cerr << "[Client] WSAStartup failed!" << endl;
         return 1;
     }
 
+    // Create client socket
     SOCKET clientSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (clientSocket == INVALID_SOCKET) {
         cerr << "[Client] Failed to create socket." << endl;
@@ -24,10 +27,12 @@ int main() {
         return 1;
     }
 
+    // Configure server address
     sockaddr_in serverAddr{};
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(12345);
 
+    // Convert IP string to binary format
     if (inet_pton(AF_INET, "127.0.0.1", &serverAddr.sin_addr) <= 0) {
         cerr << "[Client] Invalid address or inet_pton failed." << endl;
         errorOccurred = true;
@@ -39,8 +44,9 @@ int main() {
     else {
         cout << "[Client] Connected to server. Waiting for data..." << endl;
 
-        char buffer[2048] = {};
-        int bytes = recv(clientSocket, buffer, sizeof(buffer), 0);
+        // Receive flight schedule from server
+        std::array<char, 2048> buffer{};      // safer than raw array
+        int bytes = recv(clientSocket, buffer.data(), static_cast<int>(buffer.size()), 0);
         if (bytes == SOCKET_ERROR) {
             cerr << "[Client] Socket error while receiving data." << endl;
             errorOccurred = true;
@@ -50,7 +56,7 @@ int main() {
         }
         else {
             cout << "[Client] Received flight schedule:\n";
-            cout << string(buffer, bytes) << endl;
+            cout << string(buffer.data(), bytes) << endl;
         }
     }
 
@@ -61,8 +67,5 @@ int main() {
     closesocket(clientSocket);
     WSACleanup();
 
-    if (errorOccurred) {
-        return 1;
-    }
-    return 0;
+    return errorOccurred ? 1 : 0;
 }
