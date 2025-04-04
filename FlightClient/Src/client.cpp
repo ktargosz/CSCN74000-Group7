@@ -16,6 +16,12 @@ int main() {
     }
 
     SOCKET clientSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (clientSocket == INVALID_SOCKET) {
+        cerr << "[Client] Failed to create socket." << endl;
+        WSACleanup();
+        return 1;
+    }
+
     sockaddr_in serverAddr{};
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(12345);
@@ -26,7 +32,7 @@ int main() {
         return 1;
     }
 
-    if (connect(clientSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) != 0) {
+    if (connect(clientSocket, reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr)) != 0) {
         cerr << "[Client] Failed to connect to server." << endl;
         return 1;
     }

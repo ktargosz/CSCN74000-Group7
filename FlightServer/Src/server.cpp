@@ -42,7 +42,7 @@ int main() {
     serverAddr.sin_port = htons(12345);
     serverAddr.sin_addr.s_addr = INADDR_ANY;
 
-    if (bind(serverSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) != 0) {
+    if (bind(serverSocket, reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr)) != 0) {
         cerr << "[Server] Bind failed!" << endl;
         closesocket(serverSocket);
         WSACleanup();
@@ -60,7 +60,7 @@ int main() {
 
     sockaddr_in clientAddr{};
     int clientLen = sizeof(clientAddr);
-    SOCKET clientSocket = accept(serverSocket, (sockaddr*)&clientAddr, &clientLen);
+    SOCKET clientSocket = accept(serverSocket, reinterpret_cast<sockaddr*>(&clientAddr), &clientLen);
     if (clientSocket == INVALID_SOCKET) {
         cerr << "[Server] Accept failed!" << endl;
         closesocket(serverSocket);
