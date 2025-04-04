@@ -9,21 +9,25 @@
 
 using namespace std;
 
-string loadFlightSchedule(const string& filename) {
-    ifstream file(filename);
-    if (!file.is_open()) {
-        cerr << "ERROR: Could not open " << filename << endl;
-        return "ERROR: Cannot open flight file.\n";
+namespace flight {
+
+    std::string loadFlightSchedule(const std::string& filename) {
+        std::ifstream file(filename);
+        if (!file.is_open()) {
+            std::cerr << "ERROR: Could not open " << filename << std::endl;
+            return "ERROR: Cannot open flight file.\n";
+        }
+
+        std::string line, content;
+        while (std::getline(file, line)) {
+            content += line + "\n";
+        }
+
+        std::cout << "[Server] Loaded flight data:\n" << content << std::endl;
+        return content;
     }
 
-    string line, content;
-    while (getline(file, line)) {
-        content += line + "\n";
-    }
-
-    cout << "[Server] Loaded flight data:\n" << content << endl;
-    return content;
-}
+}  // namespace flight
 
 int main() {
     WSADATA wsaData;
@@ -66,7 +70,7 @@ int main() {
     cout << "[Server] Client connected." << endl;
 
     // Read schedule and send to client
-    string flights = loadFlightSchedule("flights.txt");
+    std::string flights = flight::loadFlightSchedule("flights.txt");
     int sent = send(clientSocket, flights.c_str(), static_cast<int>(flights.size()), 0);
     if (sent == SOCKET_ERROR) {
         cerr << "[Server] Send failed!" << endl;

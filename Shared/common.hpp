@@ -1,20 +1,22 @@
-#pragma once
+#ifndef COMMON_HPP
+#define COMMON_HPP
+
 #include <string>
 
-enum class FlightStatus {
-    Scheduled,
-    Delayed,
-    Cancelled,
-    Boarding,
-    InFlight,
-    Landed
-};
+namespace flight {
 
-struct FlightInfo {
-    int flightID;
-    int aircraftID;
-    std::string departureTime;
-    std::string arrivalTime;
-    std::string zone;
-    FlightStatus status;
-};
+    struct FlightData {
+        int flightID;
+        int aircraftID;
+        std::string arrivalTime;
+        std::string departureTime;
+        std::string zone;
+        std::string status;
+    };
+
+    // Future shared functions can be declared here
+    // e.g. std::string serializeFlight(const FlightData& data);
+
+}  // namespace flight
+
+#endif
