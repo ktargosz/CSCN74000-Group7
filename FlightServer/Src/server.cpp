@@ -11,8 +11,6 @@ using namespace std;
 
 // Namespace for shared project-related functions and structures
 namespace flight {
-
-    // Reads the contents of the given file and returns it as a string
     std::string loadFlightSchedule(const std::string& filename) {
         std::ifstream file(filename);
         if (!file.is_open()) {
@@ -29,76 +27,125 @@ namespace flight {
         return content;
     }
 
-}  // namespace flight
+    bool sendFile(SOCKET socket, const std::string& filename) {
+        std::ifstream file(filename, std::ios::binary);
+        if (!file.is_open()) {
+            std::cerr << "[Server] Could not open " << filename << std::endl;
+            return false;
+        }
+
+        file.seekg(0, std::ios::end);
+        int64_t size = static_cast<int64_t>(file.tellg());
+        file.seekg(0, std::ios::beg);
+
+        std::cout << "[Server] Sending file of size: " << size << " bytes\n";
+        send(socket, reinterpret_cast<const char*>(&size), sizeof(size), 0);
+
+        char buffer[4096];
+        while (!file.eof()) {
+            file.read(buffer, sizeof(buffer));
+            int bytesRead = static_cast<int>(file.gcount());
+            send(socket, buffer, bytesRead, 0);
+        }
+
+        file.close();
+        return true;
+    }
+}
 
 int main() {
     WSADATA wsaData;
-    bool errorOccurred = false;
 
     // Initialize WinSock
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-        cerr << "[Server] WSAStartup failed!" << endl;
+        std::cerr << "[Server] WSAStartup failed!" << std::endl;
         return 1;
     }
 
     // Create TCP socket
     SOCKET serverSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (serverSocket == INVALID_SOCKET) {
-        cerr << "[Server] Failed to create socket." << endl;
+        std::cerr << "[Server] Failed to create socket." << std::endl;
         WSACleanup();
         return 1;
     }
 
-    // Configure server address (localhost:12345)
+    // Allow reuse of the address (for faster restarts)
+    int opt = 1;
+    setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, (char*)&opt, sizeof(opt));
+
+    // Configure server address
     sockaddr_in serverAddr{};
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(12345);
     serverAddr.sin_addr.s_addr = INADDR_ANY;
 
-    // Bind socket to local address
+    // Bind socket
     if (bind(serverSocket, reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr)) != 0) {
-        cerr << "[Server] Bind failed!" << endl;
-        errorOccurred = true;
+        std::cerr << "[Server] Bind failed!" << std::endl;
+        closesocket(serverSocket);
+        WSACleanup();
+        return 1;
     }
-    // Start listening for incoming client connections
-    else if (listen(serverSocket, 1) != 0) {
-        cerr << "[Server] Listen failed!" << endl;
-        errorOccurred = true;
-    }
-    else {
-        cout << "[Server] Server started. Waiting for client..." << endl;
 
-        // Accept client connection
+    // Start listening
+    if (listen(serverSocket, SOMAXCONN) != 0) {
+        std::cerr << "[Server] Listen failed!" << std::endl;
+        closesocket(serverSocket);
+        WSACleanup();
+        return 1;
+    }
+
+    std::cout << "[Server] Server started. Listening on port 12345...\n";
+
+    // Accept and handle clients in a loop
+    while (true) {
         sockaddr_in clientAddr{};
         int clientLen = sizeof(clientAddr);
         SOCKET clientSocket = accept(serverSocket, reinterpret_cast<sockaddr*>(&clientAddr), &clientLen);
-        if (clientSocket == INVALID_SOCKET) {
-            cerr << "[Server] Accept failed!" << endl;
-            errorOccurred = true;
-        }
-        else {
-            cout << "[Server] Client connected." << endl;
 
-            // Load schedule and send to client
-            std::string flights = flight::loadFlightSchedule("flights.txt");
-            int sent = send(clientSocket, flights.c_str(), static_cast<int>(flights.size()), 0);
-            if (sent == SOCKET_ERROR) {
-                cerr << "[Server] Send failed!" << endl;
-                errorOccurred = true;
+        if (clientSocket == INVALID_SOCKET) {
+            std::cerr << "[Server] Accept failed!" << std::endl;
+            continue;
+        }
+
+        std::cout << "[Server] Client connected.\n";
+
+        // Loop to receive commands from this client
+        while (true) {
+            char commandBuffer[256] = {};
+            int cmdLen = recv(clientSocket, commandBuffer, sizeof(commandBuffer), 0);
+            if (cmdLen <= 0) {
+                std::cerr << "[Server] Connection lost or client closed socket.\n";
+                break;
+            }
+
+            std::string command(commandBuffer, cmdLen);
+            std::cout << "[Server] Command received: " << command << std::endl;
+
+            if (command == "GET_SCHEDULE") {
+                std::string flights = flight::loadFlightSchedule("flights.txt");
+                send(clientSocket, flights.c_str(), static_cast<int>(flights.size()), 0);
+            }
+            else if (command == "GET_BIG_FILE") {
+                flight::sendFile(clientSocket, "telemetry_log.txt");
+            }
+            else if (command == "QUIT") {
+                std::cout << "[Server] Client requested disconnect.\n";
+                break;
             }
             else {
-                cout << "[Server] Sent flight schedule to client." << endl;
+                std::cerr << "[Server] Unknown command received.\n";
             }
-
-            // Close client socket
-            closesocket(clientSocket);
         }
+
+        closesocket(clientSocket);
+        std::cout << "[Server] Client disconnected.\n\n";
     }
 
-    // Close server socket and cleanup WinSock
+    // Never reached in current version
     closesocket(serverSocket);
     WSACleanup();
-
-    // Return based on error flag
-    return errorOccurred ? 1 : 0;
+    return 0;
 }
+

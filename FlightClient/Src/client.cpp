@@ -1,6 +1,7 @@
 #include <iostream>
+#include <fstream>
 #include <string>
-#include <array>              // For std::array£¨V2578 fix)
+#include <array>
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include "common.hpp"
@@ -9,11 +10,37 @@
 
 using namespace std;
 
+// Handles the file transfer from server to client
+void receiveFile(SOCKET socket, const string& outFilename) {
+    ofstream outFile(outFilename, ios::binary);
+    if (!outFile.is_open()) {
+        cerr << "[Client] Failed to open file for writing\n";
+        return;
+    }
+
+    int64_t fileSize = 0;
+    recv(socket, reinterpret_cast<char*>(&fileSize), sizeof(fileSize), 0);
+    cout << "[Client] Expecting file of size " << fileSize << " bytes...\n";
+
+    char buffer[4096];
+    int64_t received = 0;
+
+    while (received < fileSize) {
+        int bytes = recv(socket, buffer, sizeof(buffer), 0);
+        if (bytes <= 0) {
+            cerr << "[Client] Error or connection closed\n";
+            break;
+        }
+        outFile.write(buffer, bytes);
+        received += bytes;
+    }
+
+    outFile.close();
+    cout << "[Client] File received and saved as '" << outFilename << "'\n";
+}
+
 int main() {
     WSADATA wsaData;
-    bool errorOccurred = false;
-
-    // Initialize WinSock
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
         cerr << "[Client] WSAStartup failed!" << endl;
         return 1;
@@ -31,41 +58,53 @@ int main() {
     sockaddr_in serverAddr{};
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(12345);
+    inet_pton(AF_INET, "127.0.0.1", &serverAddr.sin_addr);
 
-    // Convert IP string to binary format
-    if (inet_pton(AF_INET, "127.0.0.1", &serverAddr.sin_addr) <= 0) {
-        cerr << "[Client] Invalid address or inet_pton failed." << endl;
-        errorOccurred = true;
-    }
-    else if (connect(clientSocket, reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr)) != 0) {
+    // Connect to server
+    if (connect(clientSocket, reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr)) != 0) {
         cerr << "[Client] Failed to connect to server." << endl;
-        errorOccurred = true;
+        closesocket(clientSocket);
+        WSACleanup();
+        return 1;
     }
-    else {
-        cout << "[Client] Connected to server. Waiting for data..." << endl;
 
-        // Receive flight schedule from server
-        std::array<char, 2048> buffer{};      // safer than raw array
-        int bytes = recv(clientSocket, buffer.data(), static_cast<int>(buffer.size()), 0);
-        if (bytes == SOCKET_ERROR) {
-            cerr << "[Client] Socket error while receiving data." << endl;
-            errorOccurred = true;
+    cout << "[Client] Connected to server.\n";
+
+    while (true) {
+        // Prompt user for command
+        string command;
+        cout << "Enter command (GET_SCHEDULE / GET_BIG_FILE / QUIT): ";
+        getline(cin, command);
+
+        // Send the command
+        send(clientSocket, command.c_str(), static_cast<int>(command.size()), 0);
+
+        // Handle response
+        if (command == "GET_SCHEDULE") {
+            std::array<char, 2048> buffer{};
+            int bytes = recv(clientSocket, buffer.data(), static_cast<int>(buffer.size()), 0);
+            if (bytes > 0) {
+                cout << "[Client] Received flight schedule:\n";
+                cout << string(buffer.data(), bytes) << endl;
+            }
+            else {
+                cerr << "[Client] Failed to receive schedule.\n";
+            }
         }
-        else if (bytes == 0) {
-            cerr << "[Client] Connection closed by server." << endl;
+        else if (command == "GET_BIG_FILE") {
+            receiveFile(clientSocket, "received_file.txt");
+        }
+        else if (command == "QUIT") {
+            cout << "[Client] Disconnecting from server.\n";
+            break;
         }
         else {
-            cout << "[Client] Received flight schedule:\n";
-            cout << string(buffer.data(), bytes) << endl;
+            cerr << "[Client] Unknown command or no response.\n";
         }
     }
 
-    cout << "[Client] Press Enter to exit...";
-    cin.ignore();
-    cin.get();
-
+    // Cleanup
     closesocket(clientSocket);
     WSACleanup();
-
-    return errorOccurred ? 1 : 0;
+    return 0;
 }

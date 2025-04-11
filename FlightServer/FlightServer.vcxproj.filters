@@ -26,5 +26,6 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="flights.txt" />
+    <Text Include="..\telemetry_log.txt" />
   </ItemGroup>
 </Project>
