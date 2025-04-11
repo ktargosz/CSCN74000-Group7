@@ -8,6 +8,13 @@
 #pragma comment(lib, "ws2_32.lib")
 
 using namespace std;
+//Enum for server state machine
+enum class ServerState {
+    AWAITING_CONNECTION,
+    CONNECTED,
+    EXPECTING_COMMAND,
+    DISCONNECTED
+};
 
 // Namespace for shared project-related functions and structures
 namespace flight {
@@ -98,6 +105,13 @@ int main() {
 
     std::cout << "[Server] Server started. Listening on port 12345...\n";
 
+
+    ServerState state = ServerState::AWAITING_CONNECTION;
+    SOCKET clientSocket = INVALID_SOCKET;
+    sockaddr_in clientAddr{};
+    int clientLen = sizeof(clientAddr);
+
+
     // Accept and handle clients in a loop
     while (true) {
         sockaddr_in clientAddr{};
@@ -108,44 +122,60 @@ int main() {
             std::cerr << "[Server] Accept failed!" << std::endl;
             continue;
         }
-
         std::cout << "[Server] Client connected.\n";
+        ServerState state = ServerState::CONNECTED;
+
+
 
         // Loop to receive commands from this client
-        while (true) {
-            char commandBuffer[256] = {};
-            int cmdLen = recv(clientSocket, commandBuffer, sizeof(commandBuffer), 0);
-            if (cmdLen <= 0) {
-                std::cerr << "[Server] Connection lost or client closed socket.\n";
+        while (state != ServerState::DISCONNECTED) {
+            switch (state) {
+            case ServerState::CONNECTED: {
+                // Send a welcome message upon connection
+                const char* welcomeMsg = "Connected to server. Awaiting commands.";
+                send(clientSocket, welcomeMsg, (int)strlen(welcomeMsg), 0);
+                // Transition to expecting commands.
+                state = ServerState::EXPECTING_COMMAND;
                 break;
             }
+            case ServerState::EXPECTING_COMMAND: {
+                char commandBuffer[256] = {};
+                int cmdLen = recv(clientSocket, commandBuffer, sizeof(commandBuffer), 0);
+                if (cmdLen <= 0) {
+                    std::cerr << "[Server] Connection lost or client closed socket.\n";
+                    state = ServerState::DISCONNECTED;
+                    break;
+                }
 
-            std::string command(commandBuffer, cmdLen);
-            std::cout << "[Server] Command received: " << command << std::endl;
+                std::string command(commandBuffer, cmdLen);
+                std::cout << "[Server] Command received: " << command << std::endl;
 
-            if (command == "GET_SCHEDULE") {
-                std::string flights = flight::loadFlightSchedule("flights.txt");
-                send(clientSocket, flights.c_str(), static_cast<int>(flights.size()), 0);
-            }
-            else if (command == "GET_BIG_FILE") {
-                flight::sendFile(clientSocket, "telemetry_log.txt");
-            }
-            else if (command == "QUIT") {
-                std::cout << "[Server] Client requested disconnect.\n";
+                if (command == "GET_SCHEDULE") {
+                    std::string flights = flight::loadFlightSchedule("flights.txt");
+                    send(clientSocket, flights.c_str(), static_cast<int>(flights.size()), 0);
+                }
+                else if (command == "GET_BIG_FILE") {
+                    flight::sendFile(clientSocket, "telemetry_log.txt");
+                }
+                else if (command == "QUIT") {
+                    std::cout << "[Server] Client requested disconnect.\n";
+                    state = ServerState::DISCONNECTED;
+                    break;
+                }
+                else {
+                    std::cerr << "[Server] Unknown command received.\n";
+                }
                 break;
             }
-            else {
-                std::cerr << "[Server] Unknown command received.\n";
+            default:
+                break;
             }
         }
-
-        closesocket(clientSocket);
-        std::cout << "[Server] Client disconnected.\n\n";
+        closesocket(serverSocket);
+        WSACleanup();
+        return 0;
     }
-
-    // Never reached in current version
-    closesocket(serverSocket);
-    WSACleanup();
-    return 0;
 }
+    
+
 
